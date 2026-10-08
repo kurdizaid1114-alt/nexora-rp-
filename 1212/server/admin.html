@@ -1,0 +1,47 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NEXORA • RP — Admin</title>
+<style>
+:root{--bg:#0a0e13;--p:#111922;--p2:#17222d;--l:#25333f;--fg:#e9eff3;--m:#8c9ba7;--a:#ffb347;--ok:#5ddc8a;--bad:#ff5d5d;--t:#3fd0c9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,"Segoe UI",Tahoma,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--l)}
+h1{margin:0;font-size:22px;color:var(--a);letter-spacing:.5px;direction:ltr}main{padding:20px;max-width:1100px;margin:auto;display:grid;gap:18px}
+.card{background:var(--p);border:1px solid var(--l);border-radius:8px;padding:16px}h2{margin:0 0 10px;font-size:17px;color:var(--t)}
+table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid var(--l);text-align:start;font-size:14px}th{color:var(--m);font-weight:500}
+button,select,input{font:inherit;color:var(--fg);background:var(--p2);border:1px solid var(--l);border-radius:5px;padding:7px 11px}button{cursor:pointer}button:hover{border-color:var(--a)}
+button.pri{background:var(--a);color:#1a1204;border:0;font-weight:700}button.bad{border-color:var(--bad);color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.pill{background:var(--p2);border:1px solid var(--l);border-radius:20px;padding:2px 10px;font-size:12px;color:var(--m)}
+#login{max-width:340px;margin:12vh auto;display:grid;gap:10px}.err{color:var(--bad);min-height:18px}.ok{color:var(--ok)}
+.bar{height:6px;background:var(--p2);border-radius:3px;overflow:hidden;margin:6px 0 12px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--a),var(--t))}
+</style></head><body>
+<div id="login" class="card"><h1>NEXORA • RP</h1><div class="m">لوحة إدارة السيرفر</div><input id="u" placeholder="اسم المالك" autocomplete="username"><input id="p" type="password" placeholder="كلمة المرور" autocomplete="current-password"><button class="pri" id="go">دخول</button><div class="err" id="err"></div></div>
+<div id="app" style="display:none"><header><h1>NEXORA • RP · ADMIN</h1><div class="row"><span class="pill" id="upd">—</span><button id="out">خروج</button></div></header>
+<main><div class="card"><h2>إعلان للجميع</h2><div class="row"><input id="annT" style="flex:1;min-width:200px" maxlength="140" placeholder="نص الإعلان"><select id="annS"><option value="all">كل السيرفرات</option></select><button class="pri" id="annB">إرسال</button></div></div>
+<div id="servers"></div>
+<div class="card"><h2>الحسابات</h2><div class="row" style="margin-bottom:8px"><input id="q" placeholder="بحث بالاسم" style="flex:1"></div><div style="overflow:auto"><table><thead><tr><th>الاسم</th><th>رتبة الإدارة</th><th>الحالة</th><th></th></tr></thead><tbody id="acc"></tbody></table></div></div></main></div>
+<script>
+const $=id=>document.getElementById(id);let TK=sessionStorage.getItem('tk')||'',S=null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(p,b){const r=await fetch(p,{method:b?'POST':'GET',headers:{'content-type':'application/json','x-token':TK},body:b?JSON.stringify(b):undefined});if(r.status===401&&p!=='/api/login'){logout();throw 0}return r.json()}
+function logout(){TK='';sessionStorage.removeItem('tk');$('app').style.display='none';$('login').style.display='grid'}
+$('go').onclick=async()=>{const r=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({user:$('u').value,pass:$('p').value})});const j=await r.json();if(j.token){TK=j.token;sessionStorage.setItem('tk',TK);start()}else $('err').textContent=j.error||'خطأ'};
+$('out').onclick=logout;
+function hhmm(h){return String(Math.floor(h)).padStart(2,'0')+':'+String(Math.floor(h%1*60)).padStart(2,'0')}
+function render(){
+ $('servers').innerHTML=S.servers.map(s=>`<div class="card"><h2>${esc(s.n)} <span class="pill">${s.players.length}/${s.cap}</span> <span class="pill">الوقت ${hhmm(s.hour)}</span></h2><div class="bar"><i style="width:${s.players.length/s.cap*100}%"></i></div>
+ <div class="row" style="margin-bottom:8px"><input type="number" min="0" max="23" placeholder="ساعة" style="width:90px" id="h_${s.id}"><button onclick="setTime('${s.id}')">ضبط الوقت</button></div>
+ <div style="overflow:auto"><table><thead><tr><th>#</th><th>الاسم</th><th>الإدارة</th><th>الوظيفة</th><th>الموقع</th><th></th></tr></thead><tbody>${s.players.map(p=>`<tr><td>${p.id}</td><td>${esc(p.name)}${p.muted?' 🔇':''}</td><td>${esc(S.staffNames[p.staff]||'—')}</td><td>${esc(p.jb)}${p.dt?' ●':''}${p.car?' 🚗':''}</td><td>${p.x}, ${p.z}</td>
+ <td class="row"><button onclick="act('/api/kick',{srv:'${s.id}',id:${p.id}})">طرد</button><button onclick="act('/api/mute',{srv:'${s.id}',id:${p.id},on:${!p.muted}})">${p.muted?'فك الكتم':'كتم'}</button><button class="bad" onclick="ban('${esc(p.name).replace(/'/g,'')}')">حظر</button></td></tr>`).join('')||'<tr><td colspan=6 style="color:var(--m)">لا يوجد لاعبون الآن</td></tr>'}</tbody></table></div></div>`).join('');
+ $('annS').innerHTML='<option value="all">كل السيرفرات</option>'+S.servers.map(s=>`<option value="${s.id}">${esc(s.n)}</option>`).join('');
+ const q=$('q').value.toLowerCase();
+ $('acc').innerHTML=S.accounts.filter(a=>!q||a.key.includes(q)).slice(0,200).map(a=>`<tr><td>${esc(a.name)}${a.hasPw?' 🔒':''}</td><td><select onchange="act('/api/staff',{name:'${esc(a.name).replace(/'/g,'')}',level:+this.value})">${S.staffNames.map((n,i)=>i<6?`<option value="${i}" ${a.staff===i?'selected':''}>${n||'لاعب'}</option>`:'').join('')}</select></td><td>${a.banned?'<span style="color:var(--bad)">محظور</span>':'—'}</td>
+ <td class="row">${a.banned?`<button onclick="act('/api/unban',{name:'${esc(a.name).replace(/'/g,'')}'})">فك الحظر</button>`:`<button class="bad" onclick="ban('${esc(a.name).replace(/'/g,'')}')">حظر</button>`}<button class="bad" onclick="del('${esc(a.name).replace(/'/g,'')}')">حذف</button></td></tr>`).join('');
+}
+async function act(p,b){await api(p,b);refresh()}
+function ban(n){const r=prompt('سبب الحظر لـ '+n+':','مخالفة القوانين');if(r!==null)act('/api/ban',{name:n,reason:r})}
+function del(n){if(confirm('حذف حساب '+n+' وتقدمه نهائياً؟'))act('/api/delete',{name:n})}
+function setTime(id){const h=$('h_'+id).value;if(h!=='')act('/api/time',{srv:id,hour:+h})}
+$('annB').onclick=async()=>{const t=$('annT').value.trim();if(!t)return;await api('/api/announce',{srv:$('annS').value,text:t});$('annT').value=''};
+$('q').oninput=()=>S&&render();
+async function refresh(){try{S=await api('/api/state');if(!document.activeElement||!/INPUT|SELECT/.test(document.activeElement.tagName)||document.activeElement.id==='q')render();$('upd').textContent='آخر تحديث '+new Date().toLocaleTimeString()}catch(e){}}
+function start(){$('login').style.display='none';$('app').style.display='block';refresh();setInterval(refresh,3000)}
+if(TK)start();
+</script></body></html>

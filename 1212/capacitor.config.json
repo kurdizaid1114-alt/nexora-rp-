@@ -1,0 +1,2 @@
+{ "appId": "com.zaid.nexorarp", "appName": "NEXORA RP", "webDir": "www", "backgroundColor": "#07090d",
+  "server": { "androidScheme": "http", "cleartext": true }, "android": { "allowMixedContent": true } }
